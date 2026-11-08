@@ -38,6 +38,7 @@ DEFAULTS = {
     "adsense_client": "",
     "head_html": "",
     "body_end_html": "",
+    "title_overrides": {},         # contoh: {"nama.pdf": "Soal Latihan Kelas 6"}
     "ad_slots": {
         "top": {"type": "off"},
         "inline": {"type": "off"},
@@ -48,7 +49,7 @@ DEFAULTS = {
 ORDINAL = {1: "Pertama", 2: "Kedua", 3: "Ketiga", 4: "Keempat", 5: "Kelima",
            6: "Keenam", 7: "Ketujuh", 8: "Kedelapan", 9: "Kesembilan", 10: "Kesepuluh"}
 
-BULLET = re.compile(r"^([•●▪■◦·‣∙\-–—*]|\(cid:\d+\)|\d{1,3}[.)])\s+")
+BULLET = re.compile(r"^([•●▪■◦·‣∙➢➤►▶❖✓✔➔\-–—*]|\(cid:\d+\)|\d{1,3}[.)])\s+")
 PAGENUM = re.compile(r"(halaman|page|hal\.?)?\s*\d+(\s*(/|dari|of)\s*\d+)?")
 TERMINAL = (".", "!", "?", '"', "”", ":")
 
@@ -187,7 +188,7 @@ def build_blocks(lines, body, page_w):
             continue
         if m:
             num = m.group(1)
-            cur = {"kind": "li", "ordered": num[0].isdigit(), "num": int(re.sub(r"\D", "", num) or 1),
+            cur = {"kind": "li", "ordered": num[0].isdigit(), "delim": num[-1], "num": int(re.sub(r"\D", "", num) or 1),
                    "text": ln["text"], "size": size, "top": ln["top"], "bottom": ln["bottom"],
                    "x0": ln["x0"], "last_x1": ln["x1"]}
             blocks.append(cur)
@@ -221,12 +222,15 @@ def table_html(rows):
 
 def save_image(block, imgdir, name, dpi):
     imgdir.mkdir(parents=True, exist_ok=True)
-    pic = block["page"].crop(block["bbox"]).to_image(resolution=dpi).original.convert("RGB")
+    page = block["page"]
+    target = page if block.get("full") else page.crop(block["bbox"])
+    pic = target.to_image(resolution=dpi).original.convert("RGB")
     pic.save(imgdir / name, "JPEG", quality=82, optimize=True)
 
 
 def blocks_to_html(blocks, ads, cfg, imgdir, img_url, alt_text, part_no):
     out, open_list, paragraphs, inline_used, img_no = [], None, 0, 0, 0
+    last_delim, last_num = None, 0
 
     def close():
         nonlocal open_list
@@ -239,11 +243,14 @@ def blocks_to_html(blocks, ads, cfg, imgdir, img_url, alt_text, part_no):
         kind = b["kind"]
         if kind == "li":
             tag = "ol" if b["ordered"] else "ul"
-            if open_list != tag:
+            cont = open_list == tag and (
+                tag == "ul" or (b["delim"] == last_delim and b["num"] == last_num + 1))
+            if not cont:
                 close()
                 start = f' start="{b["num"]}"' if tag == "ol" and b["num"] != 1 else ""
                 out.append(f"<{tag}{start}>")
                 open_list = tag
+            last_delim, last_num = b.get("delim"), b["num"]
             out.append(f"<li>{esc(BULLET.sub('', b['text'], count=1))}</li>")
             continue
         close()
@@ -315,8 +322,16 @@ def process_pdf(path, cfg, used_slugs, out_dir, ads):
                     continue
                 if w > 0.95 * r["w"] and h > 0.95 * r["h"] and len(r["lines"]) >= 3:
                     continue  # latar belakang halaman
+                if max(w, h) / max(min(w, h), 1) > 8:
+                    continue  # garis / bingkai tipis
+                box = (im["x0"], im["top"], im["x1"], im["bottom"])
+                if sum(1 for l in r["lines"] if inside(l, box)) >= 2:
+                    continue  # bingkai/latar: teks di atasnya tetap ditampilkan sebagai teks
                 keep.append(im)
             r["images"] = keep
+            area = sum((im["x1"] - im["x0"]) * (im["bottom"] - im["top"]) for im in keep)
+            chars = sum(len(l["text"]) for l in r["lines"])
+            r["pagemode"] = area >= 0.5 * r["w"] * r["h"] and chars < 300   # halaman scan
 
         sizes = Counter()
         for r in raw:
@@ -326,6 +341,9 @@ def process_pdf(path, cfg, used_slugs, out_dir, ads):
 
         page_blocks = []
         for r in raw:
+            if r["pagemode"]:
+                page_blocks.append([{"kind": "img", "top": 0, "full": True, "page": r["page"]}])
+                continue
             bl = build_blocks(r["lines"], body, r["w"])
             for bbox, rows in r["tables"]:
                 bl.append({"kind": "table", "top": bbox[1], "rows": rows})
@@ -341,7 +359,7 @@ def process_pdf(path, cfg, used_slugs, out_dir, ads):
         title = None
         first = next((i for i, b in enumerate(page_blocks) if b), None)
         if first is not None:
-            heads = [b for b in page_blocks[first] if b["kind"] == "h"]
+            heads = [b for b in page_blocks[first] if b["kind"] == "h" and len(b["text"]) >= 8]
             if heads:
                 biggest = max(b["size"] for b in heads)
                 if biggest >= body * 1.3:
@@ -349,7 +367,9 @@ def process_pdf(path, cfg, used_slugs, out_dir, ads):
                     title = tb["text"]
                     page_blocks[first].remove(tb)
         meta_title = ((pdf.metadata or {}).get("Title") or "").strip()
-        title = title or meta_title or prettify(path.stem)
+        if re.search(r"untitled|^microsoft (word|powerpoint|excel)|\.(docx?|pdf|pptx?)$|^slide ", meta_title, re.I):
+            meta_title = ""
+        title = cfg.get("title_overrides", {}).get(path.name) or title or meta_title or prettify(path.stem)
 
         kept = [bl for bl in page_blocks if bl]
         if not kept:
