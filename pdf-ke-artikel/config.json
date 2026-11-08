@@ -1,0 +1,28 @@
+{
+  "site_name": "Perpustakaan Artikel",
+  "site_description": "Kumpulan artikel yang dibuat otomatis dari dokumen PDF.",
+  "site_url": "",
+  "language": "id",
+  "part_word": "Bagian",
+  "part_style": "word",
+  "show_placeholders": false,
+  "inline_every_paragraphs": 4,
+  "max_inline_ads": 3,
+  "adsense_client": "",
+  "head_html": "",
+  "body_end_html": "",
+  "ad_slots": {
+    "top": {
+      "type": "static",
+      "html": ""
+    },
+    "inline": {
+      "type": "adsense",
+      "slot": ""
+    },
+    "bottom": {
+      "type": "adstera",
+      "html": ""
+    }
+  }
+}

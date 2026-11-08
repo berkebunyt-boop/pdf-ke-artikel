@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="$lang">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>$page_title | $site_name</title>
+<meta name="description" content="$description">
+$canonical_tag
+<meta property="og:type" content="article">
+<meta property="og:title" content="$page_title">
+<meta property="og:description" content="$description">
+<meta property="og:site_name" content="$site_name">
+<link rel="stylesheet" href="/assets/style.css">
+$head_html
+</head>
+<body>
+<header class="site-header"><a class="brand" href="/">$site_name</a></header>
+<main class="wrap">
+  <p class="crumb">$crumb</p>
+  <article>
+    <h1>$page_title</h1>
+    <p class="meta">$meta_line</p>
+    $ad_top
+    <div class="content">
+$content
+    </div>
+    $ad_bottom
+  </article>
+  $nav
+  $parts_nav
+</main>
+<footer class="site-footer">&copy; $year $site_name</footer>
+$body_end_html
+</body>
+</html>

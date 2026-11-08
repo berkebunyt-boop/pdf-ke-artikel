@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="$lang">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>$site_name</title>
+<meta name="description" content="$description">
+$canonical_tag
+<link rel="stylesheet" href="/assets/style.css">
+$head_html
+</head>
+<body>
+<header class="site-header"><a class="brand" href="/">$site_name</a></header>
+<main class="wrap">
+  <h1>$site_name</h1>
+  <p class="lead">$description</p>
+  <input id="cari" class="search" type="search" placeholder="Cari judul artikel…" aria-label="Cari artikel">
+  $ad_top
+  <section id="daftar" class="cards">
+$cards
+  </section>
+  $ad_bottom
+</main>
+<footer class="site-footer">&copy; $year $site_name</footer>
+<script>
+  (function () {
+    var box = document.getElementById("cari");
+    var cards = document.querySelectorAll(".card");
+    box.addEventListener("input", function () {
+      var q = box.value.trim().toLowerCase();
+      cards.forEach(function (c) {
+        c.style.display = c.getAttribute("data-title").indexOf(q) === -1 ? "none" : "";
+      });
+    });
+  })();
+</script>
+$body_end_html
+</body>
+</html>
